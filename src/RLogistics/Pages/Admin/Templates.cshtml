@@ -1,0 +1,97 @@
+@page
+@model RLogistics.Pages.Admin.TemplatesModel
+@{
+    ViewData["Title"] = "Email templates";
+}
+<div class="card">
+    <h1>Email templates</h1>
+    <p class="muted">Admin only. Create/edit templates used for mock emails (status, vendor quotes, return reminders).</p>
+    <p class="muted"><strong>Built-in codes:</strong>
+        <code>StatusChanged</code> (fallback),
+        <code>Status_Created</code>, <code>Status_Assigned</code>, <code>Status_PickupScheduled</code>,
+        <code>Status_PickedUp</code>, <code>Status_Delivered</code>, <code>Status_PoApproval</code>,
+        <code>Status_OnHold</code>, <code>Status_Cancelled</code>,
+        <code>ClarificationSent</code>, <code>PickupScheduled</code>,
+        <code>VendorQuote</code>, <code>VendorQuote_Transport</code>, <code>VendorQuote_Processing</code>,
+        <code>DeviceReturnReminder</code>
+    </p>
+    <p class="muted">Tokens:
+        <code>{{RequestNumber}}</code> <code>{{Site}}</code> <code>{{StatusFrom}}</code> <code>{{StatusTo}}</code>
+        <code>{{RequestorName}}</code> <code>{{ContactName}}</code> <code>{{ContactEmail}}</code> <code>{{ContactPhone}}</code>
+        <code>{{Notes}}</code> <code>{{Disposition}}</code> <code>{{RequestType}}</code>
+        <code>{{PickupAddress}}</code> <code>{{PreferredPickupDate}}</code> <code>{{ScheduledPickupDate}}</code>
+        <code>{{ScheduledPickupSlot}}</code> <code>{{ExpectedReturnDate}}</code> <code>{{DaysOverdue}}</code>
+        <code>{{AssetList}}</code> <code>{{AssetCount}}</code>
+        <code>{{TransportVendor}}</code> <code>{{ProcessingVendor}}</code> <code>{{VendorName}}</code>
+        <code>{{VendorType}}</code> <code>{{CoordinatorEmail}}</code> <code>{{ClarificationQuestion}}</code>
+    </p>
+    @if (Model.Flash is not null) { <div class="flash">@Model.Flash</div> }
+    @if (Model.Error is not null) { <div class="flash error">@Model.Error</div> }
+</div>
+
+<div class="card">
+    <h2>Existing templates</h2>
+    @if (Model.Templates.Count == 0)
+    {
+        <p class="muted">No templates yet — create one below.</p>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Subject</th>
+                        <th>Active</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var t in Model.Templates)
+                {
+                    <tr>
+                        <td><strong>@t.Code</strong></td>
+                        <td>@t.SubjectTemplate</td>
+                        <td>@(t.IsActive ? "Yes" : "No")</td>
+                        <td>
+                            <a class="btn secondary" href="?edit=@Uri.EscapeDataString(t.Code)">Edit</a>
+                            <form method="post" asp-page-handler="Toggle" style="display:inline">
+                                <input type="hidden" name="code" value="@t.Code" />
+                                <button class="btn secondary" type="submit">@(t.IsActive ? "Deactivate" : "Activate")</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<div class="card">
+    <h2>@(string.IsNullOrEmpty(Model.EditingCode) ? "Create template" : $"Update — {Model.EditingCode}")</h2>
+    <form method="post" asp-page-handler="Save">
+        <label>Code * <span class="muted">(unique, e.g. StatusChanged)</span></label>
+        @if (!string.IsNullOrEmpty(Model.EditingCode))
+        {
+            <input asp-for="Code" readonly />
+        }
+        else
+        {
+            <input asp-for="Code" required />
+        }
+        <label>Subject template *</label>
+        <input asp-for="SubjectTemplate" required />
+        <label>Body template *</label>
+        <textarea asp-for="BodyTemplate" required style="min-height:160px; max-width:100%;"></textarea>
+        <label class="checkbox-label"><input asp-for="IsActive" type="checkbox" /> Active</label>
+        <p style="margin-top:1rem">
+            <button class="btn" type="submit">@(string.IsNullOrEmpty(Model.EditingCode) ? "Create" : "Update")</button>
+            @if (!string.IsNullOrEmpty(Model.EditingCode))
+            {
+                <a class="btn secondary" href="/Admin/Templates">New template</a>
+            }
+        </p>
+    </form>
+</div>

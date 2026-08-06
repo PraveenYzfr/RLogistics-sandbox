@@ -1,0 +1,32 @@
+@page
+@model RLogistics.Pages.Teams.OutboxModel
+@{
+    ViewData["Title"] = "Teams outbox";
+}
+<div class="card">
+    <h1>Teams outbox</h1>
+    <p class="muted">
+        Audit log for Teams-style notifications. Provider is set in
+        <code>Notifications:Teams:Provider</code> (MockOutbox | IncomingWebhook | Graph).
+        Status changes / quotes / reminders fan out here when <code>NotifyTeamsOnEmail</code> is true.
+        Admin: <a href="/Admin/Notifications">Notifications setup</a>
+    </p>
+</div>
+@foreach (var t in Model.Items)
+{
+    <div class="card" style="padding:.85rem 1rem;">
+        <div><strong>@t.Title</strong> <span class="badge">@t.Channel</span>
+            @if (!string.IsNullOrWhiteSpace(t.ProviderResult))
+            {
+                <span class="badge">@t.ProviderResult</span>
+            }
+        </div>
+        <div class="muted">
+            @t.CreatedAt.ToLocalTime().ToString("g")
+            @if (t.RequestId is int rid) { <text>· Request #@rid</text> }
+            @if (!string.IsNullOrWhiteSpace(t.ToHint)) { <text>· @t.ToHint</text> }
+        </div>
+        <pre style="white-space:pre-wrap; font-family:inherit; margin:.4rem 0 0;">@t.Body</pre>
+    </div>
+}
+@if (Model.Items.Count == 0) { <p class="muted">No Teams notifications yet. Change a request status or send a test from Admin → Notifications.</p> }

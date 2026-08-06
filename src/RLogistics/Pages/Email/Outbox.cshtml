@@ -1,0 +1,40 @@
+@page
+@model RLogistics.Pages.Email.OutboxModel
+@{
+    ViewData["Title"] = "Email outbox";
+}
+<div class="card">
+    <h1>Email outbox</h1>
+    <p class="muted">
+        Status updates, vendor quotes, and device-return reminders land here in <strong>Mock</strong> mode (and as audit when Graph is on).
+        For live Outlook / Teams: Admin → <a href="/Admin/Notifications">Notifications</a>.
+        Templates: Admin → Email templates. Also: <a href="/Teams/Outbox">Teams outbox</a>.
+    </p>
+    @if (Model.Flash is not null) { <div class="flash">@Model.Flash</div> }
+    @if (Model.Error is not null) { <div class="flash error">@Model.Error</div> }
+    @if (Model.CanRunReminders)
+    {
+        <form method="post" asp-page-handler="RunReminders" style="margin:.75rem 0;">
+            <button class="btn secondary" type="submit">Run overdue device-return reminders now</button>
+            <span class="muted">Emails open requests where return-by date is past and status is not PickedUp / Delivered / Cancelled.</span>
+        </form>
+    }
+</div>
+@foreach (var e in Model.Items)
+{
+    <div class="card" style="padding:.85rem 1rem;">
+        <div><strong>@e.Subject</strong>
+            @if (!string.IsNullOrWhiteSpace(e.TemplateCode))
+            {
+                <span class="badge">@e.TemplateCode</span>
+            }
+        </div>
+        <div class="muted">
+            To @e.ToAddress · @e.CreatedAt.ToLocalTime().ToString("g")
+            @if (e.RequestId is int rid) { <text>· Request #@rid</text> }
+            · @(e.StatusFrom ?? "—") → @(e.StatusTo ?? "—")
+        </div>
+        <pre style="white-space:pre-wrap; font-family:inherit; margin:.4rem 0 0;">@e.Body</pre>
+    </div>
+}
+@if (Model.Items.Count == 0) { <p class="muted">No emails yet.</p> }

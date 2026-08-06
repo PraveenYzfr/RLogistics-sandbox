@@ -1,0 +1,6 @@
+﻿<Solution>
+  <!-- Python sidecar — open folder src/RLogisticsGENIE; this file documents layout only -->
+  <Folder Name="/src/">
+    <File Path="src/RLogisticsGENIE/requirements.txt" />
+  </Folder>
+</Solution>

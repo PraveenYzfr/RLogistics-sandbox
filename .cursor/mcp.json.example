@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "rlogistics-genie": {
+      "command": "D:/Praveen/Projects/MDT-GENIE/src/RLogisticsGENIE/.venv/Scripts/python.exe",
+      "args": ["-m", "app.mcp_stdio"],
+      "cwd": "D:/Praveen/Projects/MDT-GENIE/src/RLogisticsGENIE",
+      "env": {
+        "RLOGISTICS_URL": "http://localhost:5088",
+        "RLOGISTICS_API_KEY": "rlogistics-demo-coord-key-change-me",
+        "QDRANT_URL": "http://localhost:6333"
+      }
+    }
+  }
+}

@@ -1,0 +1,77 @@
+@page
+@model RLogistics.Pages.Admin.NotificationsModel
+@{
+    ViewData["Title"] = "Notifications";
+}
+<div class="card">
+    <h1>Mail + Teams channels</h1>
+    <p class="muted">Three delivery modes for email; Teams has its own provider. Config lives in <code>appsettings.json</code> → <code>Notifications</code>.</p>
+    @if (Model.Flash is not null) { <div class="flash">@Model.Flash</div> }
+    @if (Model.Error is not null) { <div class="flash error">@Model.Error</div> }
+
+    <h2>Current status</h2>
+    <ul class="checklist">
+        <li><strong>Email mode:</strong> @Model.Mode (@Model.ResolvedMode)</li>
+        <li><strong>Audit outbox:</strong> @(Model.AlwaysAudit ? "on" : "off") · <strong>Fan-out to Teams:</strong> @(Model.NotifyTeams ? "on" : "off")</li>
+        <li><strong>Graph ClientId:</strong> @(Model.ClientIdConfigured ? "set" : "empty (Mock-only)")</li>
+        <li><strong>Signed-in Graph user:</strong> @(Model.SignedInUpn ?? "—")</li>
+        <li><strong>Teams provider:</strong> @Model.TeamsProvider · webhook @(Model.WebhookConfigured ? "configured" : "not set")</li>
+    </ul>
+
+    @if (Model.LoginInProgress || !string.IsNullOrWhiteSpace(Model.DeviceCode))
+    {
+        <div class="card" style="border-left:4px solid #0a6;">
+            <h3>Device-code login</h3>
+            @if (!string.IsNullOrWhiteSpace(Model.DeviceCode))
+            {
+                <p>Code: <strong style="font-size:1.25rem;letter-spacing:.08em;">@Model.DeviceCode</strong></p>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.VerificationUrl))
+            {
+                <p><a href="@Model.VerificationUrl" target="_blank" rel="noopener">@Model.VerificationUrl</a></p>
+            }
+            <p class="muted">@Model.DeviceCodeMessage</p>
+            @if (Model.LoginInProgress) { <p class="muted">Waiting for Microsoft sign-in… refresh this page after approving.</p> }
+        </div>
+    }
+    @if (!string.IsNullOrWhiteSpace(Model.LoginError))
+    {
+        <div class="flash error">Login error: @Model.LoginError</div>
+    }
+
+    <h2>Actions</h2>
+    <form method="post" asp-page-handler="StartLogin" style="display:inline;">
+        <button class="btn" type="submit" @(Model.ClientIdConfigured ? null : "disabled")>Start Graph device login</button>
+    </form>
+    <form method="post" asp-page-handler="TestEmail" style="display:inline;margin-left:.5rem;">
+        <input name="to" placeholder="you@outlook.com" value="@Model.TestEmailTo" style="min-width:14rem;" />
+        <button class="btn secondary" type="submit">Send test email</button>
+    </form>
+    <form method="post" asp-page-handler="TestTeams" style="display:inline;margin-left:.5rem;">
+        <button class="btn secondary" type="submit">Send test Teams</button>
+    </form>
+    <p style="margin-top:1rem;">
+        <a href="/Email/Outbox">Email outbox</a> ·
+        <a href="/Teams/Outbox">Teams outbox</a> ·
+        <a href="/swagger" target="_blank">API /api/notifications/*</a>
+    </p>
+</div>
+
+<div class="card">
+    <h2>How to enable real Outlook / Teams</h2>
+    <ol>
+        <li><strong>Mock (default)</strong> — leave <code>Mode: Mock</code>. Everything stays in Email/Teams outbox UI. No Entra app needed.</li>
+        <li><strong>Personal Microsoft (live Outlook)</strong> —
+            Register a public-client app in Entra (Azure portal → App registrations).
+            Enable public client flows; add delegated scopes <code>Mail.Send</code>, <code>User.Read</code> (and Teams scopes if using Graph Teams).
+            Set <code>Notifications:Mode</code> = <code>PersonalMicrosoft</code>, paste <code>ClientId</code>, restart Core, click <em>Start Graph device login</em>, then test email to yourself.
+        </li>
+        <li><strong>Teams real-time (easiest)</strong> —
+            In Teams, create a channel → Connectors → Incoming Webhook → copy URL into
+            <code>Notifications:Teams:IncomingWebhookUrl</code>, set <code>Provider</code> = <code>IncomingWebhook</code>.
+            Status changes appear live in that channel.
+        </li>
+        <li><strong>Enterprise Graph</strong> — confidential client + secret, <code>Mode: EnterpriseGraph</code>, app permissions <code>Mail.Send</code>, set <code>SenderUserId</code> to service mailbox UPN.</li>
+    </ol>
+    <p class="muted">Full steps: docs/Notifications-Mail-Teams.md</p>
+</div>

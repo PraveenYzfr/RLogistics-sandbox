@@ -1,0 +1,57 @@
+@page
+@model RLogistics.Pages.IndexModel
+@inject RLogistics.Services.PersonaContext Persona
+@{
+    ViewData["Title"] = "Home";
+}
+<div class="card">
+    <h1>RLogistics Core — local simulation</h1>
+    <p class="muted">Personal sandbox for Acme Bank-style reverse logistics. Not the bank RLogistics.</p>
+    @if (Model.PersonaName is null)
+    {
+        <p><a class="btn" href="/Persona">Select a persona to start</a></p>
+    }
+    else
+    {
+        <p>Signed in as <strong>@Model.PersonaName</strong>
+            @if (Persona.Current is not null)
+            {
+                <span class="badge">@Persona.Current.Role</span>
+            }
+        </p>
+        <p>
+            <a class="btn" href="/Requests/Create">Create request</a>
+            <a class="btn secondary" href="/Requests/My">My requests</a>
+            @if (Persona.Current?.Role is Domain.UserRole.Coordinator or Domain.UserRole.Admin)
+            {
+                <a class="btn" href="/Coordinator/Dashboard">Coordinator dashboard</a>
+            }
+            @if (Persona.Current?.Role == Domain.UserRole.Admin)
+            {
+                <a class="btn secondary" href="/Admin/Templates">Email templates</a>
+                <a class="btn secondary" href="/Admin/Config">Configuration</a>
+            }
+            <a class="btn secondary" href="/Email/Outbox">Email outbox</a>
+            <a class="btn secondary" href="/Teams/Outbox">Teams outbox</a>
+            @if (Persona.Current?.Role == Domain.UserRole.Admin)
+            {
+                <a class="btn secondary" href="/Admin/Notifications">Notifications</a>
+            }
+        </p>
+    }
+    <p class="muted">Requests in DB: @Model.RequestCount · Mock emails: @Model.OutboxCount · Teams msgs: @Model.TeamsOutboxCount · Personas: user / coord1 / coord2 / admin @@demo.local</p>
+</div>
+
+<div class="card">
+    <h2>Phase 0 complete checklist</h2>
+    <ul class="checklist">
+        <li>User create wizard (contact → pickup → facility → equipment + Device GUID → submit)</li>
+        <li>Partner API create</li>
+        <li>Coordinator dashboard (KPIs, grids, unassigned queue)</li>
+        <li>Process screen (review, query, plan, vendors, pickup, status workflow)</li>
+        <li>Admin email templates create/update + configuration</li>
+        <li>Email outbox (Mock) + optional real Graph (Personal / Enterprise) + Teams outbox / webhook</li>
+        <li>RLogisticsGENIE sidecar (FastAPI) for assist skills on process page</li>
+    </ul>
+    <p class="muted">Mail/Teams setup: Admin → Notifications · docs/Notifications-Mail-Teams.md</p>
+</div>

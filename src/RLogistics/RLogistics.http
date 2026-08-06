@@ -1,0 +1,95 @@
+@*
+  RLogistics API — auth + full surface.
+  Mode: Authentication:Mode = Jwt | ApiKey | JwtAndApiKey
+*@
+@RLogistics = http://localhost:5088
+@token = paste-jwt-here
+
+### Auth schemes (public)
+GET {{RLogistics}}/api/auth/schemes
+
+### Issue JWT (lab password from appsettings)
+POST {{RLogistics}}/api/auth/token
+Content-Type: application/json
+
+{
+  "email": "coord1@demo.local",
+  "password": "Demo@RLogistics2026!"
+}
+
+### Who am I (JWT)
+GET {{RLogistics}}/api/auth/me
+Authorization: Bearer {{token}}
+
+### List requests (JWT)
+GET {{RLogistics}}/api/requests
+Authorization: Bearer {{token}}
+
+### List vendors (API Key — coordinator)
+GET {{RLogistics}}/api/vendors
+X-Api-Key: rlogistics-demo-coord-key-change-me
+
+### Create (user JWT or key)
+POST {{RLogistics}}/api/requests
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "contactName": "Alex Requestor",
+  "contactEmail": "user@demo.local",
+  "site": "API Site",
+  "pickupAddressLine1": "1 Main",
+  "pickupCity": "Charlotte",
+  "dispositionType": "Sanitize",
+  "requestType": "UsSurplus",
+  "assets": [
+    { "assetType": "Laptop", "manufacturer": "Dell", "model": "5540", "quantity": 1, "deviceGuid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" }
+  ]
+}
+
+### Partner plan + quotes (coord)
+POST {{RLogistics}}/api/requests/1/plan
+Content-Type: application/json
+X-Api-Key: rlogistics-demo-coord-key-change-me
+
+{
+  "transportVendorId": 1,
+  "processingVendorId": 3,
+  "scheduledPickupDate": "2026-08-20",
+  "scheduledPickupSlot": "08:00–12:00 (Morning)",
+  "markPickupScheduled": true,
+  "expectedDeviceReturnDate": "2026-08-15"
+}
+
+### Vendor quotes
+POST {{RLogistics}}/api/requests/1/vendor-quotes
+X-Api-Key: rlogistics-demo-coord-key-change-me
+
+### Admin templates
+GET {{RLogistics}}/api/admin/email-templates
+X-Api-Key: rlogistics-demo-admin-key-change-me
+
+### Notifications status (Mock | PersonalMicrosoft | EnterpriseGraph)
+GET {{RLogistics}}/api/notifications/status
+X-Api-Key: rlogistics-demo-admin-key-change-me
+
+### Start Graph device-code login (admin; poll status for code)
+POST {{RLogistics}}/api/notifications/graph/login
+X-Api-Key: rlogistics-demo-admin-key-change-me
+
+### Test email (Mock or Graph depending on Mode)
+POST {{RLogistics}}/api/notifications/test-email
+Content-Type: application/json
+X-Api-Key: rlogistics-demo-admin-key-change-me
+
+{
+  "to": "you@outlook.com"
+}
+
+### Test Teams (MockOutbox | IncomingWebhook | Graph)
+POST {{RLogistics}}/api/notifications/test-teams
+X-Api-Key: rlogistics-demo-admin-key-change-me
+
+### Teams outbox API
+GET {{RLogistics}}/api/notifications/teams-outbox
+X-Api-Key: rlogistics-demo-admin-key-change-me

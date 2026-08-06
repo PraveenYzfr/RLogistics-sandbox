@@ -1,0 +1,230 @@
+@page
+@model RLogistics.Pages.Requests.CreateModel
+@{
+    ViewData["Title"] = "Create request";
+    var step = Model.Step;
+}
+<div class="card">
+    <h1>Create disposal request</h1>
+    <div class="steps">
+        <span class="@(step == 1 ? "active" : "")">1. Contact</span>
+        <span class="@(step == 2 ? "active" : "")">2. Pickup</span>
+        <span class="@(step == 3 ? "active" : "")">3. Facility</span>
+        <span class="@(step == 4 ? "active" : "")">4. Equipment</span>
+        <span class="@(step == 5 ? "active" : "")">5. Submit</span>
+    </div>
+    @if (Model.Error is not null) { <div class="flash error">@Model.Error</div> }
+
+    @if (step == 1)
+    {
+        <h2>User / contact details</h2>
+        <form method="post" asp-page-handler="Contact">
+            <input type="hidden" name="step" value="1" />
+            <label>Full name *</label>
+            <input asp-for="ContactName" required />
+            <label>Email *</label>
+            <input asp-for="ContactEmail" type="email" required />
+            <label>Phone</label>
+            <input asp-for="ContactPhone" />
+            <label>Department</label>
+            <input asp-for="ContactDepartment" />
+            <p style="margin-top:1rem"><button class="btn" type="submit">Next: Pickup address</button></p>
+        </form>
+    }
+    else if (step == 2)
+    {
+        <h2>Pickup address</h2>
+        <form method="post" asp-page-handler="Pickup">
+            <input type="hidden" name="step" value="2" />
+            <label>Address line 1 *</label>
+            <input asp-for="PickupAddressLine1" required />
+            <label>Address line 2</label>
+            <input asp-for="PickupAddressLine2" />
+            <div class="row">
+                <div>
+                    <label>City *</label>
+                    <input asp-for="PickupCity" required />
+                </div>
+                <div>
+                    <label>State</label>
+                    <input asp-for="PickupState" />
+                </div>
+            </div>
+            <div class="row">
+                <div>
+                    <label>Postal code</label>
+                    <input asp-for="PickupPostalCode" />
+                </div>
+                <div>
+                    <label>Country</label>
+                    <input asp-for="PickupCountry" />
+                </div>
+            </div>
+            <label>Preferred pickup date</label>
+            <input asp-for="PreferredPickupDate" type="date" />
+            <label>Pickup instructions</label>
+            <textarea asp-for="PickupInstructions"></textarea>
+            <p style="margin-top:1rem">
+                <a class="btn secondary" href="/Requests/Create?step=1">Back</a>
+                <button class="btn" type="submit">Next: Facility</button>
+            </p>
+        </form>
+    }
+    else if (step == 3)
+    {
+        <h2>Facility information</h2>
+        <form method="post" asp-page-handler="Facility">
+            <input type="hidden" name="step" value="3" />
+            <label>Facility / site name *</label>
+            <input asp-for="Site" required />
+            <label>Facility code</label>
+            <input asp-for="FacilityCode" />
+            <div class="row">
+                <div>
+                    <label>Building</label>
+                    <input asp-for="Building" />
+                </div>
+                <div>
+                    <label>Floor</label>
+                    <input asp-for="Floor" />
+                </div>
+                <div>
+                    <label>Room / dock</label>
+                    <input asp-for="Room" />
+                </div>
+            </div>
+            <label>Request type *</label>
+            <select asp-for="RequestType">
+                <option value="@((int)RequestType.UsSurplus)">US Surplus</option>
+                <option value="@((int)RequestType.PointToPoint)">Point to Point</option>
+                <option value="@((int)RequestType.International)">International</option>
+                <option value="@((int)RequestType.RequestABox)">Request a Box</option>
+            </select>
+            <label>Disposition</label>
+            <select asp-for="DispositionType" asp-items="Html.GetEnumSelectList<RLogistics.Domain.DispositionType>()"></select>
+            <label>Notes</label>
+            <textarea asp-for="Notes"></textarea>
+            <p style="margin-top:1rem">
+                <a class="btn secondary" href="/Requests/Create?step=2">Back</a>
+                <button class="btn" type="submit">Next: Equipment</button>
+            </p>
+        </form>
+    }
+    else if (step == 4)
+    {
+        <h2>Equipment information</h2>
+        @if (Model.Draft.Assets.Count > 0)
+        {
+            <table>
+                <thead><tr><th>Type</th><th>Manufacturer</th><th>Model</th><th>Device GUID</th><th>Serial</th><th>Tag</th><th>Qty</th><th></th></tr></thead>
+                <tbody>
+                @for (var i = 0; i < Model.Draft.Assets.Count; i++)
+                {
+                    var a = Model.Draft.Assets[i];
+                    <tr>
+                        <td>@a.AssetType</td>
+                        <td>@a.Manufacturer</td>
+                        <td>@a.Model</td>
+                        <td><code class="guid">@a.DeviceGuid</code></td>
+                        <td>@(a.SerialNumber ?? "—")</td>
+                        <td>@(a.AssetTag ?? "—")</td>
+                        <td>@a.Quantity</td>
+                        <td>
+                            <form method="post" asp-page-handler="RemoveEquipment" style="display:inline">
+                                <input type="hidden" asp-for="RemoveIndex" value="@i" />
+                                <button class="btn danger" type="submit">Remove</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <p class="muted">No equipment lines yet — add at least one. Device GUID is required.</p>
+        }
+
+        <h2>Add equipment line</h2>
+        <form method="post" asp-page-handler="AddEquipment">
+            <div class="row">
+                <div>
+                    <label>Type *</label>
+                    <input asp-for="AssetType" required />
+                </div>
+                <div>
+                    <label>Device GUID *</label>
+                    <input asp-for="DeviceGuid" required placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                </div>
+                <div>
+                    <label>Manufacturer *</label>
+                    <input asp-for="Manufacturer" required />
+                </div>
+                <div>
+                    <label>Model *</label>
+                    <input asp-for="Model" required />
+                </div>
+            </div>
+            <div class="row">
+                <div>
+                    <label>Serial number</label>
+                    <input asp-for="SerialNumber" />
+                </div>
+                <div>
+                    <label>Asset tag</label>
+                    <input asp-for="AssetTag" />
+                </div>
+                <div>
+                    <label>Quantity</label>
+                    <input asp-for="Quantity" type="number" min="1" />
+                </div>
+                <div>
+                    <label>Condition</label>
+                    <input asp-for="Condition" placeholder="Working / Damaged" />
+                </div>
+            </div>
+            <p style="margin-top:1rem"><button class="btn secondary" type="submit">Add to list</button></p>
+        </form>
+        <form method="post" asp-page-handler="ToReview">
+            <p style="margin-top:1rem">
+                <a class="btn secondary" href="/Requests/Create?step=3">Back</a>
+                <button class="btn" type="submit">Next: Review &amp; submit</button>
+            </p>
+        </form>
+    }
+    else
+    {
+        <h2>Review &amp; final submit</h2>
+        var d = Model.Draft;
+        <div class="grid2">
+            <div>
+                <h2>Contact</h2>
+                <p>@d.ContactName<br/>@d.ContactEmail<br/>@(d.ContactPhone ?? "—")<br/>@(d.ContactDepartment ?? "—")</p>
+                <h2>Pickup</h2>
+                <p>@d.PickupAddressLine1<br/>@d.PickupAddressLine2<br/>@d.PickupCity, @d.PickupState @d.PickupPostalCode<br/>@d.PickupCountry
+                @if (d.PreferredPickupDate is not null)
+                {
+                    <br /><span>Preferred: @d.PreferredPickupDate.Value.ToString("d")</span>
+                }
+                </p>
+            </div>
+            <div>
+                <h2>Facility</h2>
+                <p>@d.Site (@d.FacilityCode) · @RequestTypeLabels.Display(d.RequestType)<br/>Bldg @d.Building · Floor @d.Floor · Room @d.Room<br/>Disposition: @d.DispositionType</p>
+                <h2>Equipment (@d.Assets.Count)</h2>
+                <ul>
+                @foreach (var a in d.Assets)
+                {
+                    <li>@a.Quantity x @a.AssetType — @a.Manufacturer @a.Model — GUID @a.DeviceGuid — SN @(a.SerialNumber ?? "n/a")</li>
+                }
+                </ul>
+            </div>
+        </div>
+        <form method="post" asp-page-handler="Submit">
+            <p style="margin-top:1rem">
+                <a class="btn secondary" href="/Requests/Create?step=4">Back</a>
+                <button class="btn" type="submit">Final submit</button>
+            </p>
+        </form>
+    }
+</div>

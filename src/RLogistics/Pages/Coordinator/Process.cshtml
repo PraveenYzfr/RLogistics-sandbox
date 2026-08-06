@@ -1,0 +1,265 @@
+@page "{id:int}"
+@model RLogistics.Pages.Coordinator.ProcessModel
+@using RLogistics.Domain
+@{
+    ViewData["Title"] = Model.Item is null ? "Process request" : $"Process {Model.Item.RequestNumber}";
+}
+<p><a href="/Coordinator/Dashboard">← Back to dashboard</a></p>
+@if (Model.Error is not null) { <div class="flash error">@Model.Error</div> }
+@if (Model.Flash is not null) { <div class="flash">@Model.Flash</div> }
+@if (Model.Item is null) { return; }
+@{
+    var r = Model.Item;
+    var typeLabel = RequestTypeLabels.Display(r.RequestType);
+}
+
+<div class="process-header card">
+    <div>
+        <h1>@r.RequestNumber <span class="badge">@r.Status</span></h1>
+        <p class="muted">@typeLabel · @r.DispositionType · @r.Site</p>
+    </div>
+    <div class="process-actions">
+        @if (r.AssignedCoordinatorUserId is null)
+        {
+            <form method="post" asp-page-handler="Claim">
+                <input type="hidden" name="id" value="@r.Id" />
+                <button class="btn" type="submit">Claim / Assign to me</button>
+            </form>
+        }
+        else
+        {
+            <span class="muted">Assignee: @r.AssignedCoordinatorEmail</span>
+        }
+    </div>
+</div>
+
+<div class="grid2">
+    <div class="card">
+        <h2>Contact &amp; facility</h2>
+        <dl class="kv">
+            <dt>Contact</dt><dd><strong>@(string.IsNullOrWhiteSpace(r.ContactName) ? "—" : r.ContactName)</strong></dd>
+            <dt>Email</dt><dd>@(string.IsNullOrWhiteSpace(r.ContactEmail) ? "—" : r.ContactEmail)</dd>
+            <dt>Phone</dt><dd>@(r.ContactPhone ?? "—")</dd>
+            <dt>Department</dt><dd>@(r.ContactDepartment ?? "—")</dd>
+            <dt>Request type</dt><dd>@typeLabel</dd>
+            <dt>Facility</dt><dd>@(string.IsNullOrWhiteSpace(r.Site) ? "—" : r.Site) @(r.FacilityCode is null ? "" : $"({r.FacilityCode})")</dd>
+            <dt>Bldg / Floor / Room</dt><dd>@(r.Building ?? "—") / @(r.Floor ?? "—") / @(r.Room ?? "—")</dd>
+        </dl>
+    </div>
+    <div class="card">
+        <h2>Pickup address</h2>
+        <p>
+            @(string.IsNullOrWhiteSpace(r.PickupAddressLine1) ? "—" : r.PickupAddressLine1)<br/>
+            @if (!string.IsNullOrWhiteSpace(r.PickupAddressLine2)) { @r.PickupAddressLine2 <br/> }
+            @(string.IsNullOrWhiteSpace(r.PickupCity) ? "—" : r.PickupCity), @(r.PickupState ?? "") @(r.PickupPostalCode ?? "")<br/>
+            @(r.PickupCountry ?? "—")
+        </p>
+        @if (r.PreferredPickupDate is not null)
+        {
+            <p><span class="muted">Requestor preferred:</span> @r.PreferredPickupDate.Value.ToLocalTime().ToString("d")</p>
+        }
+        @if (!string.IsNullOrWhiteSpace(r.PickupInstructions))
+        {
+            <p><em>@r.PickupInstructions</em></p>
+        }
+        <p class="muted">
+            Scheduled: @(r.ScheduledPickupDate?.ToLocalTime().ToString("d") ?? "not set")
+            @(r.ScheduledPickupSlot)
+        </p>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Equipment <span class="muted">(@r.Assets.Count) — Device GUID required</span></h2>
+    @if (r.Assets.Count == 0)
+    {
+        <p class="muted">No equipment lines on this request.</p>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Manufacturer</th>
+                        <th>Model</th>
+                        <th>Device GUID</th>
+                        <th>Serial</th>
+                        <th>Tag</th>
+                        <th>Qty</th>
+                        <th>Condition</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var a in r.Assets)
+                {
+                    <tr>
+                        <td>@a.AssetType</td>
+                        <td>@(a.Manufacturer ?? "—")</td>
+                        <td>@(a.Model ?? "—")</td>
+                        <td><code class="guid">@(string.IsNullOrWhiteSpace(a.DeviceGuid) ? "—" : a.DeviceGuid)</code></td>
+                        <td>@(a.SerialNumber ?? "—")</td>
+                        <td>@(a.AssetTag ?? "—")</td>
+                        <td>@a.Quantity</td>
+                        <td>@(a.Condition ?? "—")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<div class="card">
+    <h2>RLogisticsGENIE assist <span class="muted">(sidecar)</span></h2>
+    @if (Model.GenieError is not null)
+    {
+        <p class="flash error">@Model.GenieError</p>
+    }
+    <p class="muted">Completeness, summary, clarification draft, vendor recommend — from RLogisticsGENIE :8090 via Core. Writes still require your approve (HITL).</p>
+    <form method="post" asp-page-handler="GenieRefresh" style="display:inline">
+        <input type="hidden" name="id" value="@r.Id" />
+        <button class="btn secondary" type="submit">Refresh RLogisticsGENIE</button>
+    </form>
+    <form method="post" asp-page-handler="GenieUseDraft" style="display:inline; margin-left:.5rem">
+        <input type="hidden" name="id" value="@r.Id" />
+        <button class="btn secondary" type="submit">Use clarification draft</button>
+    </form>
+    @if (!string.IsNullOrWhiteSpace(Model.GenieJson))
+    {
+        <pre style="white-space:pre-wrap; max-height:320px; overflow:auto; font-size:.85rem; margin-top:.75rem;">@Model.GenieJson</pre>
+    }
+</div>
+
+<div class="grid2">
+    <div class="card">
+        <h2>Update notes</h2>
+        <form method="post" asp-page-handler="Update">
+            <input type="hidden" name="id" value="@r.Id" />
+            <label>Requestor-facing notes</label>
+            <textarea asp-for="Notes"></textarea>
+            <label>Coordinator internal notes</label>
+            <textarea asp-for="CoordinatorNotes"></textarea>
+            <label>Pickup instructions</label>
+            <textarea asp-for="PickupInstructions"></textarea>
+            <p style="margin-top:.75rem"><button class="btn secondary" type="submit">Save notes</button></p>
+        </form>
+    </div>
+    <div class="card">
+        <h2>Query back to user</h2>
+        <form method="post" asp-page-handler="Clarify">
+            <input type="hidden" name="id" value="@r.Id" />
+            <label>Question for requestor</label>
+            <textarea asp-for="ClarificationQuestion" placeholder="Missing Device GUIDs / serials — please respond."></textarea>
+            <p class="muted">Sets status to On Hold and notifies requestor (mock email).</p>
+            <p style="margin-top:.75rem"><button class="btn" type="submit">Send query</button></p>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Workflow status</h2>
+    <p class="muted">Created → Assigned → Pickup Scheduled → Picked Up → Delivered. Rare: PO Approval, On Hold.</p>
+    <form method="post" asp-page-handler="Status">
+        <input type="hidden" name="id" value="@r.Id" />
+        <div class="row">
+            <div>
+                <label>Status</label>
+                <select asp-for="NewStatus">
+                    <option value="@((int)RequestStatus.Created)">1. Created / New</option>
+                    <option value="@((int)RequestStatus.Assigned)">2. Assigned</option>
+                    <option value="@((int)RequestStatus.PickupScheduled)">3. Pickup Scheduled</option>
+                    <option value="@((int)RequestStatus.PickedUp)">4. Picked Up</option>
+                    <option value="@((int)RequestStatus.Delivered)">5. Delivered</option>
+                    <option value="@((int)RequestStatus.PoApproval)">6. PO Approval (rare)</option>
+                    <option value="@((int)RequestStatus.OnHold)">7. On Hold (rare)</option>
+                    <option value="@((int)RequestStatus.Cancelled)">Cancelled</option>
+                </select>
+            </div>
+            <div style="flex:1; min-width:220px;">
+                <label>Status note</label>
+                <textarea asp-for="StatusNotes"></textarea>
+            </div>
+        </div>
+        <p style="margin-top:.75rem"><button class="btn secondary" type="submit">Update status</button></p>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Vendor &amp; pickup schedule</h2>
+    <p class="muted">Select transport + processing vendors, set return-by date, schedule pickup, then send quote emails when ready.</p>
+    <form method="post">
+        <input type="hidden" name="id" value="@r.Id" />
+        <div class="grid2">
+            <div>
+                <label>Transport vendor</label>
+                <select asp-for="TransportVendorId">
+                    <option value="">— select —</option>
+                    @foreach (var v in Model.TransportVendors)
+                    {
+                        <option value="@v.Id">@v.Name (@(v.ServiceArea ?? "n/a")) · @(v.Email ?? "no email")</option>
+                    }
+                </select>
+                <label>Processing vendor</label>
+                <select asp-for="ProcessingVendorId">
+                    <option value="">— select —</option>
+                    @foreach (var v in Model.ProcessingVendors)
+                    {
+                        <option value="@v.Id">@v.Name (@(v.ServiceArea ?? "n/a")) · @(v.Email ?? "no email")</option>
+                    }
+                </select>
+            </div>
+            <div>
+                <label>Device return / ready-by date</label>
+                <input asp-for="ExpectedDeviceReturnDate" type="date" />
+                <p class="muted" style="margin:.25rem 0 .75rem;">
+                    Past this date (and not picked up) → return reminder emails to team.
+                    @if (r.LastReturnReminderAt is not null)
+                    {
+                        <span>Last reminder: @r.LastReturnReminderAt.Value.ToLocalTime().ToString("g")</span>
+                    }
+                </p>
+                <label>Pickup date *</label>
+                <input asp-for="ScheduledPickupDate" type="date" />
+                <label>Pickup slot *</label>
+                <select asp-for="ScheduledPickupSlot">
+                    <option value="">— select —</option>
+                    @foreach (var s in Model.Slots)
+                    {
+                        <option value="@s">@s</option>
+                    }
+                </select>
+                <label class="checkbox-label">
+                    <input asp-for="ConfirmPickupScheduled" type="checkbox" />
+                    When date + slot set, set status to Pickup Scheduled
+                </label>
+            </div>
+        </div>
+        <p style="margin-top:1rem; display:flex; flex-wrap:wrap; gap:.75rem;">
+            <button class="btn" type="submit" asp-page-handler="Plan">Save pickup schedule &amp; vendors</button>
+            <button class="btn secondary" type="submit" asp-page-handler="Quotes">Send quote emails (transport + processing)</button>
+            <button class="btn secondary" type="submit" asp-page-handler="ReturnReminder">Send device return reminder now</button>
+        </p>
+    </form>
+</div>
+
+<div class="grid2">
+    <div class="card">
+        <h2>Clarification history</h2>
+        @foreach (var c in r.Clarifications)
+        {
+            <p><strong>@c.CreatedAt.ToLocalTime().ToString("g")</strong><br/>@c.Question
+            @if (c.Response is not null) { <br /><em>Response: @c.Response</em> }
+            </p>
+        }
+        @if (r.Clarifications.Count == 0) { <p class="muted">None yet</p> }
+    </div>
+    <div class="card">
+        <h2>Audit trail</h2>
+        @foreach (var a in r.Audit.Take(12))
+        {
+            <p><strong>@a.At.ToLocalTime().ToString("g")</strong> · @a.Action<br/><span class="muted">@a.Detail</span></p>
+        }
+    </div>
+</div>

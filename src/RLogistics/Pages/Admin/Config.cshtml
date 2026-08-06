@@ -1,0 +1,83 @@
+@page
+@model RLogistics.Pages.Admin.ConfigModel
+@{
+    ViewData["Title"] = "Configuration";
+}
+<div class="card">
+    <h1>System configuration</h1>
+    <p class="muted">Admin only. Key/value settings used by RLogistics Core (SLA hours, feature flags, defaults).</p>
+    @if (Model.Flash is not null) { <div class="flash">@Model.Flash</div> }
+    @if (Model.Error is not null) { <div class="flash error">@Model.Error</div> }
+</div>
+
+<div class="card">
+    <h2>Current values</h2>
+    @if (Model.Items.Count == 0)
+    {
+        <p class="muted">No configuration keys yet.</p>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th>Key</th>
+                        <th>Value</th>
+                        <th>Description</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var c in Model.Items)
+                {
+                    <tr>
+                        <td><strong>@c.Key</strong></td>
+                        <td><code>@c.Value</code></td>
+                        <td class="muted">@c.Description</td>
+                        <td>
+                            <a class="btn secondary" href="?edit=@Uri.EscapeDataString(c.Key)">Edit</a>
+                            @if (!string.Equals(c.Key, "WorkflowStatusV2", StringComparison.OrdinalIgnoreCase))
+                            {
+                                <form method="post" asp-page-handler="Delete" style="display:inline" onsubmit="return confirm('Delete @c.Key?');">
+                                    <input type="hidden" name="key" value="@c.Key" />
+                                    <button class="btn danger" type="submit">Delete</button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<div class="card">
+    <h2>@(string.IsNullOrEmpty(Model.EditingKey) ? "Create configuration" : $"Update — {Model.EditingKey}")</h2>
+    <form method="post" asp-page-handler="Save">
+        <label>Key *</label>
+        @if (!string.IsNullOrEmpty(Model.EditingKey))
+        {
+            <input asp-for="Key" readonly />
+        }
+        else
+        {
+            <input asp-for="Key" required placeholder="e.g. ClarificationSlaHours" />
+        }
+        <label>Value *</label>
+        <input asp-for="Value" required />
+        <label>Description</label>
+        <input asp-for="Description" />
+        <p style="margin-top:1rem">
+            <button class="btn" type="submit">@(string.IsNullOrEmpty(Model.EditingKey) ? "Create" : "Update")</button>
+            @if (!string.IsNullOrEmpty(Model.EditingKey))
+            {
+                <a class="btn secondary" href="/Admin/Config">New config</a>
+            }
+        </p>
+    </form>
+    <p class="muted" style="margin-top:1rem">
+        Common keys: <code>ClarificationSlaHours</code>, <code>AllowPartnerCreate</code>, <code>DefaultDisposition</code>
+    </p>
+</div>

@@ -1,0 +1,157 @@
+@page
+@model RLogistics.Pages.Coordinator.DashboardModel
+@using RLogistics.Domain
+@{
+    ViewData["Title"] = "Coordinator dashboard";
+}
+<div class="card">
+    <h1>Coordinator dashboard</h1>
+    <p class="muted">Hello @Model.CoordinatorName — your workload and the unassigned queue.</p>
+</div>
+
+<div class="kpi-row">
+    <div class="kpi"><div class="kpi-val">@Model.StatusCounts.GetValueOrDefault("Created")</div><div class="kpi-lbl">Created / new</div></div>
+    <div class="kpi me"><div class="kpi-val">@Model.AssignedToMeCount</div><div class="kpi-lbl">Assigned to me</div></div>
+    <div class="kpi warn"><div class="kpi-val">@Model.UnassignedCount</div><div class="kpi-lbl">Unassigned</div></div>
+    <div class="kpi"><div class="kpi-val">@Model.StatusCounts.GetValueOrDefault("OnHold")</div><div class="kpi-lbl">On hold (rare)</div></div>
+    <div class="kpi"><div class="kpi-val">@Model.StatusCounts.GetValueOrDefault("PoApproval")</div><div class="kpi-lbl">PO approval (rare)</div></div>
+    <div class="kpi ok"><div class="kpi-val">@Model.StatusCounts.GetValueOrDefault("PickupScheduled")</div><div class="kpi-lbl">Pickup scheduled</div></div>
+    <div class="kpi"><div class="kpi-val">@Model.StatusCounts.GetValueOrDefault("PickedUp")</div><div class="kpi-lbl">Picked up</div></div>
+    <div class="kpi ok"><div class="kpi-val">@Model.StatusCounts.GetValueOrDefault("Delivered")</div><div class="kpi-lbl">Delivered</div></div>
+</div>
+
+<div class="card">
+    <h2>Status snapshot</h2>
+    <div class="status-bars">
+        @foreach (var kv in Model.StatusCounts.Where(k => k.Value > 0))
+        {
+            <div class="status-bar-item">
+                <span class="badge">@kv.Key</span>
+                <div class="bar-track"><div class="bar-fill" style="width:@(Model.OpenCount == 0 ? 0 : Math.Min(100, kv.Value * 100.0 / Math.Max(1, Model.OpenCount)))%"></div></div>
+                <strong>@kv.Value</strong>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="card">
+    <h2>My assigned requests <span class="muted">(grid)</span></h2>
+    @if (Model.MyGrid.Count == 0)
+    {
+        <p class="muted">Nothing assigned to you. Claim from the unassigned queue below.</p>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th>Request</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Site / city</th>
+                        <th>Contact</th>
+                        <th>Disposition</th>
+                        <th>Assets</th>
+                        <th>Preferred pickup</th>
+                        <th>Scheduled</th>
+                        <th>Vendors</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var r in Model.MyGrid)
+                {
+                    <tr>
+                        <td><strong>@r.RequestNumber</strong></td>
+                        <td>@RequestTypeLabels.Display(r.RequestType)</td>
+                        <td><span class="badge status-@r.Status">@r.Status</span></td>
+                        <td>@r.Site<br/><span class="muted">@r.PickupCity</span></td>
+                        <td>@r.ContactName<br/><span class="muted">@r.RequestorEmail</span></td>
+                        <td>@r.DispositionType</td>
+                        <td>@r.AssetCount</td>
+                        <td>@(r.PreferredPickupDate?.ToLocalTime().ToString("d") ?? "—")</td>
+                        <td>@(r.ScheduledPickupDate?.ToLocalTime().ToString("d") ?? "—")</td>
+                        <td class="muted">@(r.TransportVendorName ?? "—") / @(r.ProcessingVendorName ?? "—")</td>
+                        <td><a class="btn" href="/Coordinator/Process/@r.Id">Process</a></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<div class="card">
+    <h2>All open requests <span class="muted">(grid)</span></h2>
+    <div class="table-wrap">
+        <table class="data-grid">
+            <thead>
+                <tr>
+                    <th>Request</th>
+                    <th>Status</th>
+                    <th>Site</th>
+                    <th>Assignee</th>
+                    <th>Created</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var r in Model.AllActive.OrderByDescending(x => x.CreatedAt))
+            {
+                <tr class="@(r.AssignedCoordinatorEmail is null ? "row-unassigned" : "")">
+                    <td>@r.RequestNumber</td>
+                    <td><span class="badge">@r.Status</span></td>
+                    <td>@r.Site</td>
+                    <td>@(r.AssignedCoordinatorEmail ?? "Unassigned")</td>
+                    <td>@r.CreatedAt.ToLocalTime().ToString("g")</td>
+                    <td><a href="/Coordinator/Process/@r.Id">Open</a></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card unassigned-panel">
+    <h2>Unassigned queue</h2>
+    <p class="muted">New partner/RLogistics submissions waiting for a coordinator to claim and process.</p>
+    @if (Model.UnassignedQueue.Count == 0)
+    {
+        <p class="muted">Queue is empty.</p>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="data-grid">
+                <thead>
+                    <tr>
+                        <th>Request</th>
+                        <th>Status</th>
+                        <th>Site / city</th>
+                        <th>Contact</th>
+                        <th>Disposition</th>
+                        <th>Assets</th>
+                        <th>Created</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var r in Model.UnassignedQueue)
+                {
+                    <tr>
+                        <td><strong>@r.RequestNumber</strong></td>
+                        <td><span class="badge">@r.Status</span></td>
+                        <td>@r.Site · @r.PickupCity</td>
+                        <td>@r.ContactName</td>
+                        <td>@r.DispositionType</td>
+                        <td>@r.AssetCount</td>
+                        <td>@r.CreatedAt.ToLocalTime().ToString("g")</td>
+                        <td><a class="btn" href="/Coordinator/Process/@r.Id">Claim &amp; process</a></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

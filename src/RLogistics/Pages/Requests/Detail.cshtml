@@ -1,0 +1,87 @@
+@page "{id:int}"
+@model RLogistics.Pages.Requests.DetailModel
+@inject RLogistics.Services.PersonaContext Persona
+@{
+    ViewData["Title"] = Model.Item?.RequestNumber ?? "Request";
+}
+@if (Model.Error is not null) { <div class="flash error">@Model.Error</div> }
+@if (Model.Flash is not null) { <div class="flash">@Model.Flash</div> }
+@if (Model.Item is null) { return; }
+@{
+    var r = Model.Item;
+}
+<div class="card">
+    <h1>@r.RequestNumber <span class="badge">@r.Status</span></h1>
+    <p class="muted">@RequestTypeLabels.Display(r.RequestType) · @r.DispositionType · @r.Site</p>
+    <p>Assignee: @(r.AssignedCoordinatorEmail ?? "Unassigned")</p>
+    @if (!string.IsNullOrWhiteSpace(r.Notes)) { <p>Notes: @r.Notes</p> }
+
+    <div class="grid2">
+        <div>
+            <h2>Contact</h2>
+            <p>@r.ContactName<br/>@r.ContactEmail<br/>@(r.ContactPhone ?? "—")</p>
+            <h2>Facility</h2>
+            <p>@r.Site<br/>Bldg @(r.Building ?? "—") · Floor @(r.Floor ?? "—") · Room @(r.Room ?? "—")</p>
+        </div>
+        <div>
+            <h2>Pickup</h2>
+            <p>@r.PickupAddressLine1<br/>@r.PickupCity, @r.PickupState
+            @if (r.ScheduledPickupDate is not null)
+            {
+                <br /><span>Scheduled: @r.ScheduledPickupDate.Value.ToLocalTime().ToString("d") @r.ScheduledPickupSlot</span>
+            }
+            </p>
+        </div>
+    </div>
+
+    <h2>Equipment</h2>
+    <table>
+        <thead><tr><th>Type</th><th>Manufacturer</th><th>Model</th><th>Device GUID</th><th>Serial</th><th>Qty</th></tr></thead>
+        <tbody>
+        @foreach (var a in r.Assets)
+        {
+            <tr>
+                <td>@a.AssetType</td>
+                <td>@(a.Manufacturer ?? "—")</td>
+                <td>@(a.Model ?? "—")</td>
+                <td><code class="guid">@(a.DeviceGuid ?? "—")</code></td>
+                <td>@(a.SerialNumber ?? "—")</td>
+                <td>@a.Quantity</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
+    <h2>Coordinator questions</h2>
+    @foreach (var c in r.Clarifications)
+    {
+        <div style="border-bottom:1px solid var(--line); padding:.6rem 0;">
+            <p><strong>@c.CreatedAt.ToLocalTime().ToString("g")</strong><br/>@c.Question</p>
+            @if (c.Response is not null)
+            {
+                <p><em>Your reply: @c.Response</em></p>
+            }
+            else if (Persona.Current?.Role == Domain.UserRole.User)
+            {
+                <form method="post" asp-page-handler="Reply">
+                    <input type="hidden" name="id" value="@r.Id" />
+                    <input type="hidden" name="clarificationId" value="@c.Id" />
+                    <label>Your response</label>
+                    <textarea name="response" required></textarea>
+                    <p style="margin-top:.5rem"><button class="btn" type="submit">Send reply</button></p>
+                </form>
+            }
+        </div>
+    }
+    @if (r.Clarifications.Count == 0) { <p class="muted">No questions from coordinators.</p> }
+</div>
+
+<div class="card">
+    <h2>History</h2>
+    @foreach (var a in r.Audit.Take(10))
+    {
+        <p><strong>@a.At.ToLocalTime().ToString("g")</strong> · @a.Action — <span class="muted">@a.Detail</span></p>
+    }
+</div>

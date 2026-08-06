@@ -1,0 +1,28 @@
+@page
+@model RLogistics.Pages.PersonaModel
+@{
+    ViewData["Title"] = "Act as persona";
+}
+<div class="card">
+    <h1>Act as…</h1>
+    <p class="muted">Simulates User / Coordinator / Admin without Entra SSO. Also send API header <code>X-RLogistics-User-Id</code>.</p>
+    <table>
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr></thead>
+        <tbody>
+        @foreach (var u in Model.Users)
+        {
+            <tr>
+                <td>@u.DisplayName</td>
+                <td>@u.Email</td>
+                <td><span class="badge">@u.Role</span></td>
+                <td>
+                    <form method="post">
+                        <input type="hidden" name="userId" value="@u.Id" />
+                        <button class="btn" type="submit">Use this persona</button>
+                    </form>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>

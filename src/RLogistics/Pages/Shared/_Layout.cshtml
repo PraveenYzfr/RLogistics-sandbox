@@ -1,0 +1,50 @@
+@using RLogistics.Services
+@inject PersonaContext Persona
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] - RLogistics Simulation</title>
+    <link rel="stylesheet" href="~/css/site.css" />
+</head>
+<body>
+<header class="topbar">
+    <div class="brand"><a href="/">RLogistics Core</a> <span class="tag">personal simulation</span></div>
+    <nav>
+        @if (Persona.Current is not null)
+        {
+            <a href="/Requests/Create">Create</a>
+            <a href="/Requests/My">My Requests</a>
+            @if (Persona.Current.Role is Domain.UserRole.Coordinator or Domain.UserRole.Admin)
+            {
+                <a href="/Coordinator/Dashboard">Coordinator Dashboard</a>
+            }
+            <a href="/Email/Outbox">Email Outbox</a>
+            <a href="/Teams/Outbox">Teams Outbox</a>
+            @if (Persona.Current.Role == Domain.UserRole.Admin)
+            {
+                <a href="/Admin/Templates">Email Templates</a>
+                <a href="/Admin/Notifications">Notifications</a>
+                <a href="/Admin/Config">Configuration</a>
+            }
+        }
+        <a href="/Persona">Act as…</a>
+        <a href="/swagger" target="_blank">API</a>
+    </nav>
+    <div class="persona">
+        @if (Persona.Current is { } u)
+        {
+            <strong>@u.DisplayName</strong> <span>(@u.Role)</span>
+        }
+        else
+        {
+            <em>No persona — <a href="/Persona">select</a></em>
+        }
+    </div>
+</header>
+<main class="container">
+    @RenderBody()
+</main>
+</body>
+</html>

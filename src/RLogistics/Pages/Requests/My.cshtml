@@ -1,0 +1,24 @@
+@page
+@model RLogistics.Pages.Requests.MyModel
+@{
+    ViewData["Title"] = "My requests";
+}
+<div class="card">
+    <h1>My requests</h1>
+    <table>
+        <thead><tr><th>Number</th><th>Site</th><th>Status</th><th>Created</th><th></th></tr></thead>
+        <tbody>
+        @foreach (var r in Model.Items)
+        {
+            <tr>
+                <td>@r.RequestNumber</td>
+                <td>@r.Site</td>
+                <td><span class="badge">@r.Status</span></td>
+                <td>@r.CreatedAt.ToLocalTime().ToString("g")</td>
+                <td><a href="/Requests/Detail/@r.Id">Open</a></td>
+            </tr>
+        }
+        </tbody>
+    </table>
+    @if (Model.Items.Count == 0) { <p class="muted">No requests yet.</p> }
+</div>

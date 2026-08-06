@@ -1,0 +1,8 @@
+﻿<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RLogistics/RLogistics.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RLogistics.Tests/RLogistics.Tests.csproj" />
+  </Folder>
+</Solution>
