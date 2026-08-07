@@ -19,6 +19,7 @@ public class ProcessModel(IRequestService requests, PersonaContext persona, IGen
     public string? Flash { get; private set; }
     public string? GenieJson { get; private set; }
     public string? GenieError { get; private set; }
+    public string? AgentsJson { get; private set; }
 
     [BindProperty] public RequestStatus NewStatus { get; set; }
     [BindProperty] public string? StatusNotes { get; set; }
@@ -175,6 +176,27 @@ public class ProcessModel(IRequestService requests, PersonaContext persona, IGen
         }
         catch (Exception ex) { Error = ex.Message; }
         return await OnGetAsync(id);
+    }
+
+    public async Task<IActionResult> OnPostAgentsRunAsync(int id)
+    {
+        await LoadAsync(id);
+        try
+        {
+            var result = await genie.RunAgentsAsync(id);
+            AgentsJson = JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
+            if (AgentsJson.Contains("pending_hitl", StringComparison.OrdinalIgnoreCase))
+                Flash = "Multi-agent stopped for HITL — review draft/action; Core writes are blocked until you approve.";
+            else if (AgentsJson.Contains("ready_for_pickup", StringComparison.OrdinalIgnoreCase))
+                Flash = "Agents propose ready_for_pickup (no auto status change).";
+            else if (AgentsJson.Contains("\"error\"", StringComparison.OrdinalIgnoreCase))
+                GenieError = "Agent run error — is GENIE up?";
+        }
+        catch (Exception ex)
+        {
+            GenieError = ex.Message;
+        }
+        return Page();
     }
 
     private async Task LoadAsync(int id)

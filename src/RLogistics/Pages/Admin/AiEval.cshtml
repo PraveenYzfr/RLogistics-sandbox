@@ -1,0 +1,49 @@
+@page
+@model RLogistics.Pages.Admin.AiEvalModel
+@{
+    ViewData["Title"] = "AI Eval (SME)";
+}
+<h1>AI Eval — SME review</h1>
+<p class="muted">Score GenAI outputs (HITL). AI judge runs in RLogisticsGENIE; you provide SME ground truth.</p>
+
+@if (!string.IsNullOrEmpty(Model.Flash))
+{
+    <p class="flash">@Model.Flash</p>
+}
+@if (!string.IsNullOrEmpty(Model.Error))
+{
+    <pre class="error">@Model.Error</pre>
+}
+
+<section>
+    <h2>Performance metrics</h2>
+    <pre class="code">@Model.MetricsJson</pre>
+</section>
+
+<section>
+    <h2>Today usage / cost</h2>
+    <pre class="code">@Model.UsageJson</pre>
+</section>
+
+<section>
+    <h2>Pending SME cases</h2>
+    <pre class="code">@Model.CasesJson</pre>
+</section>
+
+<section>
+    <h2>Submit SME score</h2>
+    <form method="post" asp-page-handler="Sme" class="stack">
+        <label>Case id <input name="caseId" required placeholder="paste id from pending list" /></label>
+        <label>Score 0–5 <input name="score" type="number" step="0.1" min="0" max="5" value="4" required /></label>
+        <label>Pass?
+            <select name="passed">
+                <option value="true" selected>Yes — pass</option>
+                <option value="false">No — fail</option>
+            </select>
+        </label>
+        <label>Notes <textarea name="notes" rows="3"></textarea></label>
+        <button class="btn" type="submit">Save SME score</button>
+    </form>
+</section>
+
+<p class="muted">Requires RLogisticsGENIE on :8090. APIs: <code>/v1/eval/*</code>, <code>/v1/observability/*</code>.</p>

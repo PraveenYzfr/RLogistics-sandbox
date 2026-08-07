@@ -31,7 +31,8 @@ def test_rag_indexes_kb_and_searches():
     assert hits
     assert hits[0]["score"] >= 0
     assert hits[0].get("text") or hits[0].get("title")
-    assert store.backend in ("offline", "fastembed", "azure_openai", "openai", "tfidf", "hash")
+    assert store.provider.name in ("offline", "fastembed", "azure_openai", "openai", "tfidf", "hash", "gemini", "ollama")
+    assert store.vector_store in ("memory", "qdrant", "azure_ai_search")
 
 
 def test_langgraph_intake_invokes():

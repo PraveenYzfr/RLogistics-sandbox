@@ -19,11 +19,12 @@ public static class RLogisticsPermissions
     public const string EmailRemindersRun = "rlogistics.email.reminders.run";
     public const string AdminTemplates = "rlogistics.admin.templates";
     public const string AdminConfig = "rlogistics.admin.config";
+    public const string AdminAiEval = "rlogistics.admin.aieval";
 
     public static readonly string[] All =
     [
         UsersRead, RequestsRead, RequestsWrite, RequestsAssign, RequestsStatus,
         RequestsPlan, RequestsQuotes, RequestsReminders, RequestsClarify,
-        VendorsRead, EmailOutboxRead, EmailRemindersRun, AdminTemplates, AdminConfig
+        VendorsRead, EmailOutboxRead, EmailRemindersRun, AdminTemplates, AdminConfig, AdminAiEval
     ];
 }

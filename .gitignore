@@ -49,4 +49,9 @@ src/RLogisticsGENIE/.venv/
 src/RLogisticsGENIE/**/__pycache__/
 *.pyc
 .env
+src/RLogisticsGENIE/data/
+
+
+# Runtime usage/eval JSONL (GENIE)
+data/
 

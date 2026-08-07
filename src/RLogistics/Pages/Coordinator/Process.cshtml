@@ -126,9 +126,18 @@
         <input type="hidden" name="id" value="@r.Id" />
         <button class="btn secondary" type="submit">Use clarification draft</button>
     </form>
+    <form method="post" asp-page-handler="AgentsRun" style="display:inline; margin-left:.5rem">
+        <input type="hidden" name="id" value="@r.Id" />
+        <button class="btn" type="submit">Run multi-agent</button>
+    </form>
     @if (!string.IsNullOrWhiteSpace(Model.GenieJson))
     {
         <pre style="white-space:pre-wrap; max-height:320px; overflow:auto; font-size:.85rem; margin-top:.75rem;">@Model.GenieJson</pre>
+    }
+    @if (!string.IsNullOrWhiteSpace(Model.AgentsJson))
+    {
+        <h3>Multi-agent trace</h3>
+        <pre style="white-space:pre-wrap; max-height:420px; overflow:auto; font-size:.85rem; margin-top:.75rem;">@Model.AgentsJson</pre>
     }
 </div>
 

@@ -21,7 +21,8 @@ public static class PermissionCatalog
             RLogisticsPermissions.RequestsClarify,
             RLogisticsPermissions.VendorsRead,
             RLogisticsPermissions.EmailOutboxRead,
-            RLogisticsPermissions.EmailRemindersRun
+            RLogisticsPermissions.EmailRemindersRun,
+            RLogisticsPermissions.AdminAiEval
         ],
         UserRole.User =>
         [

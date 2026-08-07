@@ -51,6 +51,8 @@ Details: [docs/Testing.md](docs/Testing.md)
 | Doc | Description |
 |---|---|
 | [docs/Embeddings.md](docs/Embeddings.md) | Switchable RAG embeddings (offline vs Azure OpenAI enterprise) |
+| [docs/Observability-Eval.md](docs/Observability-Eval.md) | Usage/cost, rate+spend limits, AI judge + SME eval |
+| [docs/Agents-LLM-MCP.md](docs/Agents-LLM-MCP.md) | Multi-agent, dual-tier LLM, MCP HTTP, vector backends |
 | [docs/Testing.md](docs/Testing.md) | Automated tests (xUnit + pytest) + how to run |
 | [docs/CLAUDE-CODE-CONTEXT.md](docs/CLAUDE-CODE-CONTEXT.md) | **AI / Claude Code handoff** — full project context + pasteable system prompt |
 | [docs/Notifications-Mail-Teams.md](docs/Notifications-Mail-Teams.md) | Mock / personal Graph / enterprise Graph / Teams webhooks |

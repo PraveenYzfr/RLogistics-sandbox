@@ -68,6 +68,7 @@ def test_rag_uses_injected_offline_provider():
     store = RagStore(provider=OfflineTfidfProvider())
     n = store.index_documents(load_kb())
     assert n > 0
-    assert store.backend == "offline"
+    assert store.provider.name == "offline"
+    assert "offline" in store.backend
     hits = store.search("clarification On Hold Device GUID", top_k=2)
     assert hits
