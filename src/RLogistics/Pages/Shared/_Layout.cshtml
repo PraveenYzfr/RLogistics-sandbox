@@ -26,7 +26,12 @@
             {
                 <a href="/Admin/Templates">Email Templates</a>
                 <a href="/Admin/Notifications">Notifications</a>
+                <a href="/Admin/AiEval">AI Eval</a>
                 <a href="/Admin/Config">Configuration</a>
+            }
+            else if (Persona.Current.Role == Domain.UserRole.Coordinator)
+            {
+                <a href="/Admin/AiEval">AI Eval</a>
             }
         }
         <a href="/Persona">Act as…</a>

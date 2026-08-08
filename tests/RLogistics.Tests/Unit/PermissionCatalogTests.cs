@@ -28,6 +28,7 @@ public class PermissionCatalogTests
         var perms = PermissionCatalog.ForRole(UserRole.Coordinator);
         perms.Should().Contain(RLogisticsPermissions.RequestsPlan);
         perms.Should().Contain(RLogisticsPermissions.RequestsQuotes);
+        perms.Should().Contain(RLogisticsPermissions.AdminAiEval);
         perms.Should().NotContain(RLogisticsPermissions.AdminTemplates);
     }
 }

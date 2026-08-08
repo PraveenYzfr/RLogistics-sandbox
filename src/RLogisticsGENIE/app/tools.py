@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import time
 from typing import Any
 
+from app.config import settings
 from app.core_client import RLogisticsClient
 from app.graphs import run_intake_assist, run_quote_cycle
+from app.observability import estimate_tokens, record_usage
 from app.rag import RagStore, get_shared_rag, load_kb
 from app.skills import parse_quote_email
 
@@ -87,6 +90,15 @@ def list_tool_specs() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "run_multi_agent",
+            "description": "Supervisor+Intake/Compliance/Vendor agents for a request (HITL on writes)",
+            "inputSchema": {
+                "type": "object",
+                "properties": {"request_id": {"type": "integer"}},
+                "required": ["request_id"],
+            },
+        },
+        {
             "name": "send_vendor_quotes",
             "description": "Trigger Core vendor-quote emails for a request",
             "inputSchema": {
@@ -115,35 +127,110 @@ def list_tools() -> list[dict[str, str]]:
     return [{"name": t["name"], "description": t["description"]} for t in list_tool_specs()]
 
 
+def _maybe_capture_eval(
+    skill: str,
+    input_text: str,
+    output: Any,
+    *,
+    request_id: int | None = None,
+    request_number: str | None = None,
+) -> None:
+    if not settings.eval_auto_capture:
+        return
+    try:
+        from app.eval_store import get_eval_store
+
+        out_text = output if isinstance(output, str) else json.dumps(output, default=str)
+        get_eval_store().create_case(
+            skill=skill,
+            input_text=input_text,
+            output_text=out_text,
+            request_id=request_id,
+            request_number=request_number,
+            caller="tool",
+            run_judge=True,
+        )
+    except Exception:
+        pass
+
+
 async def call_tool(name: str, args: dict[str, Any] | None = None) -> Any:
     """Dispatch a tool by name. Single source of truth for HTTP + MCP."""
     args = args or {}
     client = RLogisticsClient()
     rag = ensure_rag_indexed()
+    t0 = time.perf_counter()
+    ok = True
+    err: str | None = None
+    result: Any = None
     try:
         if name == "get_request":
-            return await client.get_request(int(args["request_id"]))
-        if name == "list_requests":
-            return await client.list_requests(args.get("status"))
-        if name == "intake_assist":
+            result = await client.get_request(int(args["request_id"]))
+        elif name == "list_requests":
+            result = await client.list_requests(args.get("status"))
+        elif name == "intake_assist":
             req = await client.get_request(int(args["request_id"]))
             q = f"{req.get('site')} {req.get('dispositionType')} {req.get('requestType')} policy"
             hits = rag.search(q)
-            return run_intake_assist(req, hits)
-        if name == "recommend_vendors":
+            result = run_intake_assist(req, hits)
+            draft = ""
+            if isinstance(result, dict):
+                draft = str(result.get("clarification_draft") or result.get("summary") or result)
+            _maybe_capture_eval(
+                "intake_assist",
+                q,
+                draft or result,
+                request_id=int(args["request_id"]),
+                request_number=str(req.get("requestNumber") or ""),
+            )
+        elif name == "recommend_vendors":
             req = await client.get_request(int(args["request_id"]))
             vendors = await client.list_vendors()
-            return run_quote_cycle(req, vendors)
-        if name == "parse_quote":
-            return parse_quote_email(args.get("body", ""), args.get("request_number"))
-        if name == "rag_search":
-            return rag.search(args.get("query", ""), int(args.get("top_k", 4)))
-        if name == "send_vendor_quotes":
-            return await client.send_vendor_quotes(int(args["request_id"]))
-        if name == "send_clarification":
-            return await client.send_clarification(int(args["request_id"]), args["question"])
-        return {"error": f"unknown tool {name}"}
+            result = run_quote_cycle(req, vendors)
+        elif name == "parse_quote":
+            body = args.get("body", "")
+            result = parse_quote_email(body, args.get("request_number"))
+            _maybe_capture_eval(
+                "parse_quote",
+                body,
+                result,
+                request_number=args.get("request_number"),
+            )
+        elif name == "rag_search":
+            query = args.get("query", "")
+            result = rag.search(query, int(args.get("top_k", 4)))
+            _maybe_capture_eval("rag_answer", query, result)
+        elif name == "run_multi_agent":
+            from app.agents import run_supervisor
+
+            result = await run_supervisor(int(args["request_id"]))
+        elif name == "send_vendor_quotes":
+            result = await client.send_vendor_quotes(int(args["request_id"]))
+        elif name == "send_clarification":
+            result = await client.send_clarification(int(args["request_id"]), args["question"])
+        else:
+            result = {"error": f"unknown tool {name}"}
+            ok = False
+            err = str(result["error"])
+        return result
+    except Exception as ex:
+        ok = False
+        err = str(ex)
+        raise
     finally:
+        latency = (time.perf_counter() - t0) * 1000
+        in_tok = estimate_tokens(json.dumps(args, default=str))
+        out_tok = estimate_tokens(json.dumps(result, default=str) if result is not None else "")
+        record_usage(
+            operation=f"tool:{name}",
+            provider=rag.backend if name == "rag_search" else "core-http",
+            model="",
+            input_tokens=in_tok,
+            output_tokens=out_tok,
+            latency_ms=latency,
+            ok=ok,
+            error=err,
+        )
         await client.close()
 
 

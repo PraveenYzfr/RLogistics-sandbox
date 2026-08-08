@@ -67,9 +67,16 @@ class RagStore:
         self._mem: list[dict[str, Any]] = []
         self._qdrant = None
         self._qm = None
+        self._azure_search = False
         self._provider = provider or create_embedding_provider()
         self._dim = self._provider.dim
-        self._init_qdrant()
+        self._vector_backend = (settings.vector_backend or "qdrant").strip().lower()
+        if self._vector_backend == "azure_ai_search":
+            self._init_azure_search()
+        elif self._vector_backend == "memory":
+            log.info("RAG vector store: memory only")
+        else:
+            self._init_qdrant()
 
     @property
     def chunk_count(self) -> int:
@@ -85,7 +92,15 @@ class RagStore:
 
     @property
     def backend(self) -> str:
-        return self._provider.name
+        return f"{self._provider.name}+{self.vector_store}"
+
+    @property
+    def vector_store(self) -> str:
+        if self._azure_search:
+            return "azure_ai_search"
+        if self._qdrant:
+            return "qdrant"
+        return "memory"
 
     @property
     def dim(self) -> int:
@@ -95,16 +110,28 @@ class RagStore:
     def provider(self) -> EmbeddingProvider:
         return self._provider
 
+    def _init_azure_search(self) -> None:
+        if settings.azure_search_endpoint and settings.azure_search_api_key:
+            self._azure_search = True
+            log.info("RAG vector store: azure_ai_search %s", settings.azure_search_endpoint)
+        else:
+            self._azure_search = False
+            log.warning("azure_ai_search selected but endpoint/key missing — memory fallback")
+            self._vector_backend = "memory"
+
     def _init_qdrant(self) -> None:
         try:
             from qdrant_client import QdrantClient
             from qdrant_client.http import models as qm
 
-            self._qdrant = QdrantClient(url=settings.qdrant_url, timeout=5)
+            client = QdrantClient(url=settings.qdrant_url, timeout=5)
+            client.get_collections()
+            self._qdrant = client
             self._qm = qm
             log.info("RAG vector store: qdrant %s", settings.qdrant_url)
         except Exception as ex:
             self._qdrant = None
+            self._qm = None
             log.warning("Qdrant unavailable (%s) — in-memory RAG", ex)
 
     def embed(self, text: str) -> list[float]:
@@ -192,27 +219,88 @@ class RagStore:
             except Exception as ex:
                 log.warning("Qdrant upsert failed: %s", ex)
 
+        if self._azure_search:
+            try:
+                self._azure_upsert(chunks)
+            except Exception as ex:
+                log.warning("Azure AI Search upsert failed: %s", ex)
+
         self._mem = chunks
         return len(chunks)
 
+    def _azure_headers(self) -> dict[str, str]:
+        return {"api-key": settings.azure_search_api_key, "Content-Type": "application/json"}
+
+    def _azure_upsert(self, chunks: list[dict[str, Any]]) -> None:
+        import httpx
+
+        # Assumes index already has vector field `contentVector` + text fields.
+        endpoint = settings.azure_search_endpoint.rstrip("/")
+        url = (
+            f"{endpoint}/indexes/{settings.azure_search_index}/docs/index"
+            f"?api-version={settings.azure_search_api_version}"
+        )
+        actions = []
+        for c in chunks:
+            actions.append(
+                {
+                    "@search.action": "mergeOrUpload",
+                    "id": c["id"].replace(":", "_")[:128],
+                    "title": c["title"],
+                    "text": c["text"],
+                    "doc_id": c["doc_id"],
+                    "chunk_id": c["id"],
+                    "contentVector": c["vector"],
+                }
+            )
+        with httpx.Client(timeout=60.0) as client:
+            # batch in 320
+            for i in range(0, len(actions), 320):
+                r = client.post(url, headers=self._azure_headers(), json={"value": actions[i : i + 320]})
+                r.raise_for_status()
+
     def search(self, query: str, top_k: int = 4) -> list[dict[str, Any]]:
         qv = self.embed(query)
+        if self._azure_search:
+            try:
+                return self._azure_search_query(qv, top_k)
+            except Exception as ex:
+                log.warning("Azure AI Search query failed: %s", ex)
+
         if self._qdrant:
             try:
-                hits = self._qdrant.search(
+                if hasattr(self._qdrant, "search"):
+                    hits = self._qdrant.search(
+                        collection_name=settings.qdrant_collection,
+                        query_vector=qv,
+                        limit=top_k,
+                    )
+                    return [
+                        {
+                            "title": h.payload.get("title"),
+                            "text": h.payload.get("text"),
+                            "score": float(h.score),
+                            "doc_id": h.payload.get("doc_id"),
+                            "chunk_id": h.payload.get("chunk_id"),
+                        }
+                        for h in hits
+                    ]
+                # Newer qdrant-client API
+                res = self._qdrant.query_points(
                     collection_name=settings.qdrant_collection,
-                    query_vector=qv,
+                    query=qv,
                     limit=top_k,
                 )
+                points = getattr(res, "points", res) or []
                 return [
                     {
-                        "title": h.payload.get("title"),
-                        "text": h.payload.get("text"),
-                        "score": float(h.score),
-                        "doc_id": h.payload.get("doc_id"),
-                        "chunk_id": h.payload.get("chunk_id"),
+                        "title": (p.payload or {}).get("title"),
+                        "text": (p.payload or {}).get("text"),
+                        "score": float(getattr(p, "score", 0) or 0),
+                        "doc_id": (p.payload or {}).get("doc_id"),
+                        "chunk_id": (p.payload or {}).get("chunk_id"),
                     }
-                    for h in hits
+                    for p in points
                 ]
             except Exception as ex:
                 log.warning("Qdrant search failed: %s", ex)
@@ -230,6 +318,41 @@ class RagStore:
             )
         scored.sort(key=lambda x: x["score"], reverse=True)
         return scored[:top_k]
+
+    def _azure_search_query(self, vector: list[float], top_k: int) -> list[dict[str, Any]]:
+        import httpx
+
+        endpoint = settings.azure_search_endpoint.rstrip("/")
+        url = (
+            f"{endpoint}/indexes/{settings.azure_search_index}/docs/search"
+            f"?api-version={settings.azure_search_api_version}"
+        )
+        body = {
+            "count": True,
+            "select": "title,text,doc_id,chunk_id",
+            "vectorQueries": [
+                {
+                    "kind": "vector",
+                    "vector": vector,
+                    "fields": "contentVector",
+                    "k": top_k,
+                }
+            ],
+        }
+        with httpx.Client(timeout=30.0) as client:
+            r = client.post(url, headers=self._azure_headers(), json=body)
+            r.raise_for_status()
+            values = r.json().get("value") or []
+            return [
+                {
+                    "title": v.get("title"),
+                    "text": v.get("text"),
+                    "score": float(v.get("@search.score") or 0),
+                    "doc_id": v.get("doc_id"),
+                    "chunk_id": v.get("chunk_id"),
+                }
+                for v in values[:top_k]
+            ]
 
 
 def load_kb(kb_dir: Path | None = None) -> list[dict[str, str]]:
@@ -257,8 +380,11 @@ def embed(text: str) -> list[float]:
 def embedding_status() -> dict[str, Any]:
     store = get_shared_rag()
     return {
-        "provider": store.backend,
+        "provider": store.provider.name,
+        "vector_store": store.vector_store,
+        "backend": store.backend,
         "configured": settings.rag_embedding_provider,
+        "vector_backend_setting": settings.vector_backend,
         "dim": store.dim,
         "chunks": store.chunk_count,
         "enterprise_guide": ENTERPRISE_EMBEDDING_GUIDE,

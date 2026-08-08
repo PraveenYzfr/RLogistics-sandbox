@@ -133,7 +133,22 @@ See [`.env.example`](../src/RLogisticsGENIE/.env.example) and [`docs/Embeddings.
 - Vectors: Qdrant `rlogistics_sops` when up; else in-memory
 - **Azure AI Search** integrated vectorization = next platform step (still deferred)
 
-Health: `GET /health` → `rag.provider`, `embeddings_enterprise`
+Health: `GET /health` → `rag.provider`, `embeddings_enterprise`, `usage.today_*`, `limits`
+
+## Observability / spend / eval
+
+See [`docs/Observability-Eval.md`](Observability-Eval.md).
+
+| API | Purpose |
+|-----|---------|
+| `GET /v1/observability/summary` | calls + est. $ by operation |
+| `GET /v1/observability/events` | recent usage events |
+| `GET /v1/observability/limits` | remaining RPM / budget |
+| `GET/POST /v1/eval/cases` | create/list eval cases |
+| `POST /v1/eval/cases/{id}/sme` | SME score |
+| `GET /v1/eval/metrics` | AI vs SME performance |
+
+Admin UI: RLogistics `/Admin/AiEval`.
 
 ## LangGraph
 
